@@ -20,7 +20,7 @@ from bot import db as storage
 from bot import keyboards, web
 from bot.config import ConfigError
 from bot.dialogs import dialog_key
-from bot.drivers import numbered_placeholders
+from bot.drivers import clean_postgres_url, numbered_placeholders
 from bot.states import Registration, Submit
 from tests.fake_telegram import FakeTelegram
 from tests.support import CONFIG, DISPATCHER, TEACHER, open_test_db
@@ -86,6 +86,15 @@ class HelpersTest(unittest.TestCase):
             "SELECT * FROM t WHERE a = $1 AND b = $2",
         )
         self.assertEqual(numbered_placeholders("SELECT 1"), "SELECT 1")
+
+    def test_unsupported_url_params_are_removed(self):
+        base = "postgresql://user:pass@ep-test-pooler.eu-central-1.aws.neon.tech/neondb"
+        self.assertEqual(
+            clean_postgres_url(base + "?sslmode=require&channel_binding=require"),
+            base + "?sslmode=require",
+        )
+        self.assertEqual(clean_postgres_url(base + "?channel_binding=require"), base)
+        self.assertEqual(clean_postgres_url(base), base)
 
 
 class WebTest(unittest.IsolatedAsyncioTestCase):

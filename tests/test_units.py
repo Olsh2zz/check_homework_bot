@@ -53,6 +53,13 @@ class ConfigTest(unittest.TestCase):
                 load_config(env)
             self.assertIn(variable, str(caught.exception))
 
+    def test_database_url_has_second_name(self):
+        base = {"BOT_TOKEN": "42:TEST", "TEACHER_ID": "1"}
+        self.assertIsNone(load_config(base).database_url)
+        self.assertEqual(load_config({**base, "POSTGRES_URL": "pg://b"}).database_url, "pg://b")
+        both = {**base, "DATABASE_URL": "pg://a", "POSTGRES_URL": "pg://b"}
+        self.assertEqual(load_config(both).database_url, "pg://a")
+
     def test_teacher_id_must_be_number(self):
         with self.assertRaises(ConfigError):
             load_config({"BOT_TOKEN": "42:TEST", "TEACHER_ID": "@teacher"})
