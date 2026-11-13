@@ -39,7 +39,7 @@ app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 def check_web_config(config: Config) -> None:
     """Проверяет настройки, без которых бот не может работать на Vercel."""
     if not config.database_url:
-        raise ConfigError("Не задана переменная DATABASE_URL (строка подключения к Supabase)")
+        raise ConfigError("Не задана переменная DATABASE_URL (строка подключения к базе Postgres)")
     if not config.webhook_secret:
         raise ConfigError("Не задана переменная WEBHOOK_SECRET")
 

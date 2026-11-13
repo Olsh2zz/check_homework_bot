@@ -71,7 +71,10 @@ def load_config(env: Mapping[str, str]) -> Config:
         reminder_hour=reminder_hour,
         reminder_days=reminder_days,
         timezone=timezone,
-        database_url=env.get("DATABASE_URL", "").strip() or None,
+        # POSTGRES_URL: под таким именем строку подключения задают некоторые интеграции Vercel.
+        database_url=(
+            env.get("DATABASE_URL", "").strip() or env.get("POSTGRES_URL", "").strip() or None
+        ),
         webhook_secret=env.get("WEBHOOK_SECRET", "").strip() or None,
         cron_secret=env.get("CRON_SECRET", "").strip() or None,
     )
