@@ -1,0 +1,6 @@
+# Файл: requirements.txt
+# Назначение: библиотеки, которые нужны боту для работы.
+aiogram>=3.13,<4
+aiosqlite>=0.20
+python-dotenv>=1.0
+tzdata>=2024.1
