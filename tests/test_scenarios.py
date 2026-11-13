@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import unittest
 from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
 
 from aiogram.methods import (
     AnswerCallbackQuery,
@@ -20,28 +19,13 @@ from aiogram.types import Document, PhotoSize
 
 from bot import db as storage
 from bot import keyboards
-from bot.__main__ import build_dispatcher
-from bot.config import Config
-from bot.db import Database
+from bot.dialogs import dialog_key
 from bot.reminders import send_reminder
 from tests.fake_telegram import FakeTelegram
+from tests.support import CONFIG, DISPATCHER, TEACHER, open_test_db
 
-TEACHER = 1
 STUDENT = 100
 STRANGER = 300
-
-CONFIG = Config(
-    bot_token="42:TEST",
-    teacher_id=TEACHER,
-    db_path=":memory:",
-    reminder_hour=9,
-    reminder_days=2,
-    timezone=ZoneInfo("Europe/Moscow"),
-)
-
-# Роутеры можно подключить только к одному диспетчеру, поэтому он общий на все тесты,
-# а база и память диалогов подменяются перед каждым тестом.
-DISPATCHER = build_dispatcher(CONFIG, Database(":memory:"))
 
 
 def photo(file_id: str) -> list[PhotoSize]:
@@ -50,10 +34,9 @@ def photo(file_id: str) -> list[PhotoSize]:
 
 class ScenarioTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.db = Database(":memory:")
-        await self.db.connect()
+        self.db = await open_test_db()
         DISPATCHER["db"] = self.db
-        DISPATCHER.storage.storage.clear()
+        DISPATCHER.storage.bind(self.db)
         self.tg = FakeTelegram()
 
     async def asyncTearDown(self):
@@ -201,13 +184,13 @@ class ScenarioTest(unittest.IsolatedAsyncioTestCase):
         draft = await self.db.get_draft(STUDENT)
         self.assertEqual(await self.db.count_items(draft["id"]), 0)
 
-    async def test_draft_survives_bot_restart(self):
+    async def test_draft_survives_lost_dialog_state(self):
         await self.register()
         await self.say(STUDENT, keyboards.BTN_SUBMIT)
         await self.say(STUDENT, "Лаб. 1")
         await self.say(STUDENT, "Часть 1")
-        # После перезапуска бот не помнит, на каком шаге диалога был студент.
-        DISPATCHER.storage.storage.clear()
+        # Шаг диалога потерян, но черновик в базе остался.
+        await self.db.set_dialog_state(dialog_key(STUDENT, STUDENT), None)
         await self.say(STUDENT, "Часть 2")
         await self.say(STUDENT, keyboards.BTN_SEND)
 

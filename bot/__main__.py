@@ -1,6 +1,6 @@
 # Файл: bot/__main__.py
-# Назначение: точка запуска: читает настройки, открывает базу, подключает
-# обработчики и запускает получение сообщений от Telegram.
+# Назначение: запуск на своём компьютере или сервере: бот сам опрашивает Telegram
+# и работает, пока запущена программа. Для Vercel используется bot/web.py.
 
 from __future__ import annotations
 
@@ -9,45 +9,35 @@ import logging
 import os
 import sys
 
-from aiogram import Bot, Dispatcher, F
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ChatType, ParseMode
-from aiogram.fsm.storage.memory import MemoryStorage
 from dotenv import load_dotenv
 
 from bot.config import Config, ConfigError, load_config
 from bot.db import Database
-from bot.handlers import registration, student, teacher
+from bot.dispatcher import ALLOWED_UPDATES, build_dispatcher, make_bot
+from bot.drivers import make_driver
 from bot.reminders import reminder_loop
 
 
-def build_dispatcher(config: Config, db: Database) -> Dispatcher:
-    """Собирает диспетчер: делит обработчики между преподавателем и студентами."""
-    dispatcher = Dispatcher(storage=MemoryStorage())
-    dispatcher["db"] = db
-    dispatcher["config"] = config
-    # Бот работает только в личных чатах: в группах сдачи увидели бы все участники.
-    dispatcher.message.filter(F.chat.type == ChatType.PRIVATE)
-
-    is_teacher = F.from_user.id == config.teacher_id
-    teacher.router.message.filter(is_teacher)
-    teacher.router.callback_query.filter(is_teacher)
-    for router in (registration.router, student.router):
-        router.message.filter(~is_teacher)
-        router.callback_query.filter(~is_teacher)
-
-    dispatcher.include_routers(teacher.router, registration.router, student.router)
-    return dispatcher
-
-
 async def run(config: Config) -> None:
-    db = Database(config.db_path)
+    db = Database(make_driver(config.db_path, config.database_url))
     await db.connect()
-    bot = Bot(config.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    dispatcher = build_dispatcher(config, db)
+    bot = make_bot(config)
+    dispatcher = build_dispatcher(config)
+    dispatcher["db"] = db
+    dispatcher.storage.bind(db)
     reminders = asyncio.create_task(reminder_loop(bot, db, config))
     try:
-        await dispatcher.start_polling(bot)
+        webhook = await bot.get_webhook_info()
+        if webhook.url:
+            # Telegram не отдаёт сообщения опросом, пока у бота включён вебхук. Отключать его
+            # молча нельзя: этим же токеном может пользоваться бот, запущенный на Vercel.
+            print(
+                f"У этого бота включён вебхук ({webhook.url}), поэтому локальный запуск "
+                "невозможен. Создайте для проверки отдельного бота у @BotFather.",
+                file=sys.stderr,
+            )
+            return
+        await dispatcher.start_polling(bot, allowed_updates=ALLOWED_UPDATES)
     finally:
         reminders.cancel()
         await bot.session.close()

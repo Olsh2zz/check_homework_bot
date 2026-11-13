@@ -6,7 +6,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from bot import db as storage
-from bot.db import Database
+from tests.support import open_test_db
 
 STUDENT = 100
 OTHER_STUDENT = 200
@@ -14,8 +14,7 @@ OTHER_STUDENT = 200
 
 class DatabaseTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.db = Database(":memory:")
-        await self.db.connect()
+        self.db = await open_test_db()
         await self.db.save_student(STUDENT, "ivanov", "Иванов Иван", "ИВТ-21")
         await self.db.save_student(OTHER_STUDENT, None, "Петров Пётр", "ИВТ-22")
 
