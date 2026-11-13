@@ -11,7 +11,7 @@ from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.base import BaseSession
 from aiogram.enums import ParseMode
-from aiogram.methods import AnswerCallbackQuery, SendMediaGroup, TelegramMethod
+from aiogram.methods import SendMediaGroup, TelegramMethod
 from aiogram.types import CallbackQuery, Chat, Message, Update, User
 
 TEST_TOKEN = "42:TEST"
@@ -42,7 +42,8 @@ class FakeSession(BaseSession):
 
     async def make_request(self, bot: Bot, method: TelegramMethod, timeout: int | None = None):
         self.requests.append(method)
-        if isinstance(method, AnswerCallbackQuery):
+        if not hasattr(method, "chat_id"):
+            # Запросы без чата (ответ на нажатие кнопки, установка вебхука) возвращают «успешно».
             return True
         if isinstance(method, SendMediaGroup):
             return [self._message(method.chat_id) for _ in method.media]

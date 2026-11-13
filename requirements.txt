@@ -1,6 +1,9 @@
 # Файл: requirements.txt
-# Назначение: библиотеки, которые нужны боту для работы.
+# Назначение: библиотеки, которые нужны боту для работы. aiogram общается
+# с Telegram, aiosqlite и asyncpg работают с базой, fastapi принимает запросы на Vercel.
 aiogram>=3.13,<4
 aiosqlite>=0.20
+asyncpg>=0.30
+fastapi>=0.115
 python-dotenv>=1.0
 tzdata>=2024.1

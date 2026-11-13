@@ -26,15 +26,11 @@ MAX_TITLE_LENGTH = 100
 MAX_QUESTION_LENGTH = 1500
 # Ограничение на размер одной сдачи, чтобы преподавателю не пришли сотни сообщений.
 MAX_ITEMS = 30
-# Сколько последних альбомов помнить, чтобы отвечать на альбом один раз.
-ALBUM_MEMORY = 500
 
 COLLECT_HINT = (
     "Присылайте работу: текст, ссылки, фото или файлы, можно несколькими сообщениями. "
     f"Когда всё будет прислано, нажмите «{keyboards.BTN_SEND}»."
 )
-
-_seen_albums: list[str] = []
 
 
 class RegisteredOnly(BaseMiddleware):
@@ -201,15 +197,13 @@ async def _collect(message: Message, state: FSMContext, db: Database) -> None:
             f"Нажмите «{keyboards.BTN_SEND}»."
         )
         return
-    count = await db.add_item(draft["id"], message.message_id, kind, text, file_id)
-
     album = message.media_group_id
+    # Альбом приходит отдельными сообщениями, отвечаем только на первое из них.
+    first_of_album = album is not None and not await db.album_seen(draft["id"], album)
+    count = await db.add_item(draft["id"], message.message_id, kind, text, file_id, album)
     if album is None:
         await message.answer(f"Добавлено, сообщений в работе: {count}.")
-    elif album not in _seen_albums:
-        # Альбом приходит отдельными сообщениями, отвечаем только на первое из них.
-        _seen_albums.append(album)
-        del _seen_albums[:-ALBUM_MEMORY]
+    elif first_of_album:
         await message.answer("Альбом добавлен.")
 
 
